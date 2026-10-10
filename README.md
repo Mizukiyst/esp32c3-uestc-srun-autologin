@@ -15,7 +15,7 @@ http://10.253.0.235/srun_portal_pc?ac_id=3&theme=pro
 - 自动检测在线状态，掉线后自动重新认证
 - 每 1 分钟检查一次深澜在线状态，掉线时立即重新认证
 - STA 使用 WiFi 最大 Modem-Sleep，空闲检测期间降低功耗
-- 板载指示灯 GPIO8 每 5 秒短闪一次
+- 板载指示灯 GPIO8 默认关闭
 - 配置保存在 SPIFFS，重启后自动恢复
 
 ## 快速使用
@@ -77,7 +77,7 @@ HTTP 返回 status=200
 
 `Specified method is invalid for this resource` 通常表示浏览器访问了旧的 `GET /save` 地址，返回首页即可；最新固件已兼容该地址。
 
-认证任务每 1 分钟检查一次在线状态。WiFi 发射功率设置为 8.5 dBm，并使用最大 Modem-Sleep 省电模式。配置 AP 仍保持开启；因此设备不会进入深度睡眠，手机仍可连接 `192.168.4.1`，但实际功耗会受 AP 广播、STA 信号质量和上游路由器 DTIM 设置影响。默认按 ESP32-C3 SuperMini 的板载 LED 配置为 GPIO8、低电平点亮，每 5 秒短闪一次；其他板型可修改 `STATUS_LED_GPIO` 和电平宏。
+认证任务每 1 分钟检查一次在线状态。WiFi 发射功率设置为 8.5 dBm，并使用最大 Modem-Sleep 省电模式。配置 AP 仍保持开启；因此设备不会进入深度睡眠，手机仍可连接 `192.168.4.1`，但实际功耗会受 AP 广播、STA 信号质量和上游路由器 DTIM 设置影响。默认按 ESP32-C3 SuperMini 的板载 LED 配置为 GPIO8 并关闭；其他板型可修改 `STATUS_LED_GPIO` 和电平宏。
 
 ## 免责声明
 
