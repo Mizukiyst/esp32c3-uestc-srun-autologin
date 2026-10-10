@@ -1,0 +1,23 @@
+idf_component_register(
+    SRCS
+        "app_main.c"
+        "wifi_manager.c"
+        "web_config.c"
+        "config_codec.c"
+        "srun_client.c"
+    INCLUDE_DIRS
+        "."
+    REQUIRES
+        nvs_flash
+        esp_wifi
+        esp_event
+        esp_netif
+        esp_timer
+        log
+        mbedtls
+        lwip
+        esp_http_client
+        esp_http_server
+        json
+        spiffs
+)
