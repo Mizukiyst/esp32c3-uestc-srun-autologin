@@ -138,7 +138,9 @@ esp_err_t wifi_connect(const char* ssid, const char* password)
     if (password && password[0])
         strncpy((char*)wifi_config.sta.password, password, sizeof(wifi_config.sta.password) - 1);
 
-    esp_wifi_set_ps(WIFI_PS_NONE);
+    /* 空闲期间使用最大 Modem-Sleep；AP 仍保持开启，STA 按 DTIM 周期唤醒。 */
+    ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_MAX_MODEM));
+    ESP_LOGI(TAG, "STA 启用 WiFi 最大省电模式");
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
     ESP_LOGI(TAG, "STA 连接: [%s]", ssid);
     esp_wifi_connect();

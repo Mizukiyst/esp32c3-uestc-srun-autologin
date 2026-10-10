@@ -19,6 +19,7 @@
 
 static const char *TAG = "SRUN";
 #define SRUN_BODY_MAX 8192
+#define SRUN_CHECK_INTERVAL_MS (5UL * 60UL * 1000UL)
 static char s_client_ip[16];
 
 typedef struct { char *data; size_t size; size_t capacity; } response_buf_t;
@@ -275,9 +276,9 @@ static void srun_task(void *arg)
     app_config_t cfg = *(app_config_t *)arg; free(arg);
     for (;;) {
         if (!wifi_is_connected()) { vTaskDelay(pdMS_TO_TICKS(1000)); continue; }
-        if (!srun_online(&cfg)) { ESP_LOGI(TAG, "未认证，开始深澜登录"); if (srun_login(&cfg)) ESP_LOGI(TAG, "深澜认证成功"); else ESP_LOGW(TAG, "深澜认证失败，60秒后重试"); }
+        if (!srun_online(&cfg)) { ESP_LOGI(TAG, "未认证，开始深澜登录"); if (srun_login(&cfg)) ESP_LOGI(TAG, "深澜认证成功"); else ESP_LOGW(TAG, "深澜认证失败，5分钟后重试"); }
         else ESP_LOGI(TAG, "深澜在线");
-        vTaskDelay(pdMS_TO_TICKS(60000));
+        vTaskDelay(pdMS_TO_TICKS(SRUN_CHECK_INTERVAL_MS));
     }
 }
 
