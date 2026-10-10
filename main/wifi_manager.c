@@ -123,8 +123,9 @@ esp_err_t wifi_init(void)
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &ap_config));
     ESP_ERROR_CHECK(esp_wifi_start());
 
-    /* SuperMini 降功率 */
-    esp_wifi_set_max_tx_power(34);
+    const int8_t wifiOutputPower = 34;
+    ESP_ERROR_CHECK(esp_wifi_set_max_tx_power(wifiOutputPower));
+    ESP_LOGI(TAG, "WiFi 最大发射功率: 8.5 dBm");
 
     ESP_LOGI(TAG, "AP 已开启: ESurfing-Config (192.168.4.1), DHCP=192.168.4.2-192.168.4.20");
     return ESP_OK;

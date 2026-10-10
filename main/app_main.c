@@ -14,12 +14,42 @@
 #include "nvs_flash.h"
 #include "esp_spiffs.h"
 #include "esp_err.h"
+#include "driver/gpio.h"
 
 #include "wifi_manager.h"
 #include "web_config.h"
 #include "srun_client.h"
 
 static const char* TAG = "MAIN";
+
+#define STATUS_LED_GPIO GPIO_NUM_8
+#define STATUS_LED_ON_LEVEL 0
+#define STATUS_LED_OFF_LEVEL 1
+#define STATUS_LED_PERIOD_MS 5000
+#define STATUS_LED_PULSE_MS 100
+
+static void status_led_task(void *arg)
+{
+    (void)arg;
+    for (;;) {
+        gpio_set_level(STATUS_LED_GPIO, STATUS_LED_ON_LEVEL);
+        vTaskDelay(pdMS_TO_TICKS(STATUS_LED_PULSE_MS));
+        gpio_set_level(STATUS_LED_GPIO, STATUS_LED_OFF_LEVEL);
+        vTaskDelay(pdMS_TO_TICKS(STATUS_LED_PERIOD_MS - STATUS_LED_PULSE_MS));
+    }
+}
+
+static void status_led_start(void)
+{
+    ESP_ERROR_CHECK(gpio_reset_pin(STATUS_LED_GPIO));
+    ESP_ERROR_CHECK(gpio_set_level(STATUS_LED_GPIO, STATUS_LED_OFF_LEVEL));
+    ESP_ERROR_CHECK(gpio_set_direction(STATUS_LED_GPIO, GPIO_MODE_OUTPUT));
+    if (xTaskCreate(status_led_task, "status_led", 2048, NULL, 1, NULL) != pdPASS) {
+        ESP_LOGE(TAG, "工作指示灯任务创建失败");
+        return;
+    }
+    ESP_LOGI(TAG, "工作指示灯 GPIO%d: 每5秒点亮100毫秒", STATUS_LED_GPIO);
+}
 
 static esp_err_t init_spiffs(void)
 {
@@ -45,6 +75,7 @@ static esp_err_t init_spiffs(void)
 void app_main(void)
 {
     ESP_LOGI(TAG, "=== ESP32-C3 Srun ===");
+    status_led_start();
 
     /* NVS */
     esp_err_t ret = nvs_flash_init();
