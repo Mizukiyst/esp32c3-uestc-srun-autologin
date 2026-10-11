@@ -1,7 +1,7 @@
 /**
  * ESurfingClient - ESP32-C3 SuperMini
  * 校园网天翼宽带自动认证客户端
- * AP 常开 (192.168.4.1) 供 Web 配置
+ * 上电或复位后提供 Web 配置窗口，定时唤醒后认证并深睡
  */
 
 #include <stdio.h>
@@ -14,6 +14,7 @@
 #include "nvs_flash.h"
 #include "esp_spiffs.h"
 #include "esp_err.h"
+#include "esp_sleep.h"
 #include "driver/gpio.h"
 
 #include "wifi_manager.h"
@@ -30,6 +31,9 @@ static void status_led_disable(void)
     ESP_ERROR_CHECK(gpio_reset_pin(STATUS_LED_GPIO));
     ESP_ERROR_CHECK(gpio_set_level(STATUS_LED_GPIO, STATUS_LED_OFF_LEVEL));
     ESP_ERROR_CHECK(gpio_set_direction(STATUS_LED_GPIO, GPIO_MODE_OUTPUT));
+    ESP_ERROR_CHECK(gpio_hold_dis(STATUS_LED_GPIO));
+    ESP_ERROR_CHECK(gpio_hold_en(STATUS_LED_GPIO));
+    gpio_deep_sleep_hold_en();
 }
 
 static esp_err_t init_spiffs(void)
@@ -72,18 +76,18 @@ void app_main(void)
         return;
     }
 
-    /* WiFi: AP 常开 (ESurfing-Config) + STA */
-    if (wifi_init() != ESP_OK) {
+    app_config_t cfg;
+    bool configured = load_config(&cfg);
+    bool config_ap_enabled = !configured || esp_sleep_get_wakeup_cause() != ESP_SLEEP_WAKEUP_TIMER;
+    if (wifi_init(config_ap_enabled) != ESP_OK) {
         ESP_LOGE(TAG, "WiFi 初始化失败");
         return;
     }
 
-    /* Web 配置后台 */
-    ESP_ERROR_CHECK(web_config_start());
+    if (config_ap_enabled) ESP_ERROR_CHECK(web_config_start());
 
     /* 加载配置并连接 STA */
-    app_config_t cfg;
-    if (load_config(&cfg)) {
+    if (configured) {
         ESP_LOGI(TAG, "连接 WiFi: %s", cfg.wifi_ssid);
         wifi_connect(cfg.wifi_ssid, cfg.wifi_password);
         srun_start(&cfg);

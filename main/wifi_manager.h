@@ -11,7 +11,7 @@ typedef enum {
     WIFI_STATE_FAILED
 } wifi_state_t;
 
-esp_err_t wifi_init(void);
+esp_err_t wifi_init(bool config_ap_enabled);
 esp_err_t wifi_connect(const char* ssid, const char* password);
 
 wifi_state_t wifi_get_state(void);

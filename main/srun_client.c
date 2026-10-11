@@ -7,7 +7,9 @@
 #include "esp_netif.h"
 #include "esp_wifi.h"
 #include "esp_timer.h"
+#include "esp_sleep.h"
 #include "wifi_manager.h"
+#include "web_config.h"
 #include "mbedtls/md.h"
 #include "mbedtls/sha1.h"
 #include "cJSON.h"
@@ -19,7 +21,9 @@
 
 static const char *TAG = "SRUN";
 #define SRUN_BODY_MAX 8192
-#define SRUN_CHECK_INTERVAL_MS (60UL * 1000UL)
+#define SRUN_SLEEP_INTERVAL_US (120ULL * 1000000ULL)
+#define SRUN_WIFI_TIMEOUT_MS 30000
+#define SRUN_CONFIG_WINDOW_MS 120000
 static char s_client_ip[16];
 
 typedef struct { char *data; size_t size; size_t capacity; } response_buf_t;
@@ -274,12 +278,22 @@ static bool srun_online(const app_config_t *cfg)
 static void srun_task(void *arg)
 {
     app_config_t cfg = *(app_config_t *)arg; free(arg);
-    for (;;) {
-        if (!wifi_is_connected()) { vTaskDelay(pdMS_TO_TICKS(1000)); continue; }
-        if (!srun_online(&cfg)) { ESP_LOGI(TAG, "未认证，开始深澜登录"); if (srun_login(&cfg)) ESP_LOGI(TAG, "深澜认证成功"); else ESP_LOGW(TAG, "深澜认证失败，1分钟后重试"); }
+    int64_t config_deadline_us = esp_timer_get_time() + (int64_t)SRUN_CONFIG_WINDOW_MS * 1000;
+    bool timer_wakeup = esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_TIMER;
+    if (!timer_wakeup) ESP_LOGI(TAG, "重启后保留2分钟配置窗口");
+    if (wifi_wait_connected(SRUN_WIFI_TIMEOUT_MS)) {
+        if (!srun_online(&cfg)) { ESP_LOGI(TAG, "未认证，开始深澜登录"); if (srun_login(&cfg)) ESP_LOGI(TAG, "深澜认证成功"); else ESP_LOGW(TAG, "深澜认证失败，下次唤醒后重试"); }
         else ESP_LOGI(TAG, "深澜在线");
-        vTaskDelay(pdMS_TO_TICKS(SRUN_CHECK_INTERVAL_MS));
+    } else {
+        ESP_LOGW(TAG, "WiFi 连接超时，下次唤醒后重试");
     }
+    int64_t remaining_us = config_deadline_us - esp_timer_get_time();
+    if (!timer_wakeup && remaining_us > 0) vTaskDelay(pdMS_TO_TICKS((uint32_t)((remaining_us + 999) / 1000)));
+    ESP_ERROR_CHECK(web_config_stop());
+    ESP_ERROR_CHECK(esp_wifi_stop());
+    ESP_ERROR_CHECK(esp_sleep_enable_timer_wakeup(SRUN_SLEEP_INTERVAL_US));
+    ESP_LOGI(TAG, "进入深度睡眠，120秒后唤醒");
+    esp_deep_sleep_start();
 }
 
 void srun_start(const app_config_t *cfg)

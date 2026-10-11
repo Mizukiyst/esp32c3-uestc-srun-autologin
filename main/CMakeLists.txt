@@ -13,6 +13,8 @@ idf_component_register(
         esp_event
         esp_netif
         esp_timer
+        esp_hw_support
+        esp_driver_gpio
         log
         mbedtls
         lwip

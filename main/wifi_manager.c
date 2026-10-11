@@ -1,5 +1,5 @@
 /**
- * @brief WiFi Manager - 常开 AP (配置后台) + STA (校园网)
+ * @brief WiFi Manager - 可选配置 AP + STA (校园网)
  */
 
 #include "wifi_manager.h"
@@ -77,7 +77,7 @@ static void event_handler(void* arg, esp_event_base_t event_base,
     }
 }
 
-esp_err_t wifi_init(void)
+esp_err_t wifi_init(bool config_ap_enabled)
 {
     s_wifi_event_group = xEventGroupCreate();
     if (!s_wifi_event_group) return ESP_FAIL;
@@ -86,18 +86,20 @@ esp_err_t wifi_init(void)
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 
     esp_netif_create_default_wifi_sta();
-    s_ap_netif = esp_netif_create_default_wifi_ap();
-    if (!s_ap_netif) return ESP_FAIL;
+    if (config_ap_enabled) {
+        s_ap_netif = esp_netif_create_default_wifi_ap();
+        if (!s_ap_netif) return ESP_FAIL;
 
-    esp_netif_ip_info_t ap_ip = {0};
-    IP4_ADDR(&ap_ip.ip, 192, 168, 4, 1);
-    IP4_ADDR(&ap_ip.gw, 192, 168, 4, 1);
-    IP4_ADDR(&ap_ip.netmask, 255, 255, 255, 0);
-    esp_err_t dhcp_ret = esp_netif_dhcps_stop(s_ap_netif);
-    if (dhcp_ret != ESP_OK) ESP_LOGW(TAG, "停止 AP DHCP 返回: %s", esp_err_to_name(dhcp_ret));
-    ESP_ERROR_CHECK(esp_netif_set_ip_info(s_ap_netif, &ap_ip));
-    dhcp_ret = esp_netif_dhcps_start(s_ap_netif);
-    if (dhcp_ret != ESP_OK) ESP_LOGW(TAG, "启动 AP DHCP 返回: %s", esp_err_to_name(dhcp_ret));
+        esp_netif_ip_info_t ap_ip = {0};
+        IP4_ADDR(&ap_ip.ip, 192, 168, 4, 1);
+        IP4_ADDR(&ap_ip.gw, 192, 168, 4, 1);
+        IP4_ADDR(&ap_ip.netmask, 255, 255, 255, 0);
+        esp_err_t dhcp_ret = esp_netif_dhcps_stop(s_ap_netif);
+        if (dhcp_ret != ESP_OK) ESP_LOGW(TAG, "停止 AP DHCP 返回: %s", esp_err_to_name(dhcp_ret));
+        ESP_ERROR_CHECK(esp_netif_set_ip_info(s_ap_netif, &ap_ip));
+        dhcp_ret = esp_netif_dhcps_start(s_ap_netif);
+        if (dhcp_ret != ESP_OK) ESP_LOGW(TAG, "启动 AP DHCP 返回: %s", esp_err_to_name(dhcp_ret));
+    }
 
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
@@ -107,7 +109,7 @@ esp_err_t wifi_init(void)
     ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT,
         IP_EVENT_STA_GOT_IP, &event_handler, NULL, NULL));
 
-    /* AP 配置：始终开启，WPA2 保护 */
+    /* 配置 AP：WPA2 保护 */
     wifi_config_t ap_config = {
         .ap = {
             .ssid = "ESurfing-Config",
@@ -119,15 +121,16 @@ esp_err_t wifi_init(void)
         },
     };
 
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &ap_config));
+    ESP_ERROR_CHECK(esp_wifi_set_mode(config_ap_enabled ? WIFI_MODE_APSTA : WIFI_MODE_STA));
+    if (config_ap_enabled) ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &ap_config));
     ESP_ERROR_CHECK(esp_wifi_start());
 
     const int8_t wifiOutputPower = 34;
     ESP_ERROR_CHECK(esp_wifi_set_max_tx_power(wifiOutputPower));
     ESP_LOGI(TAG, "WiFi 最大发射功率: 8.5 dBm");
 
-    ESP_LOGI(TAG, "AP 已开启: ESurfing-Config (192.168.4.1), DHCP=192.168.4.2-192.168.4.20");
+    if (config_ap_enabled) ESP_LOGI(TAG, "AP 已开启: ESurfing-Config (192.168.4.1), DHCP=192.168.4.2-192.168.4.20");
+    else ESP_LOGI(TAG, "定时唤醒，仅开启 STA");
     return ESP_OK;
 }
 
